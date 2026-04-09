@@ -6,7 +6,7 @@ const C = {
   darkOlive:  "#4a4820",
   midOlive:   "#6b6820",
   lightOlive: "#a8b84b",
-  sage:       "#d7d5a5",   // color de la imagen — fondo y botón agregar
+  sage:       "#d7d5a5",
   card:       "#fffef5",
   border:     "#b8b460",
   muted:      "#7a7640",
@@ -15,16 +15,18 @@ const C = {
   whatsapp:   "#25D366",
 };
 
-const CON_MIEL = [
+// Base ingredients (sin pasas ni chocolate)
+const BASE_CON_MIEL = [
   "Copos de maíz","Proteína de soja","Avena","Nueces","Almendras",
   "Castañas de cajú","Coco rallado","Semillas de zapallo",
-  "Aceite de coco","Miel","Chips de banana","Pasas de uva","Chocolate",
+  "Aceite de coco","Miel","Chips de banana",
 ];
-const SIN_MIEL = [
+const BASE_SIN_MIEL = [
   "Copos de maíz","Proteína de soja","Avena","Nueces","Almendras",
   "Castañas de cajú","Coco rallado","Semillas de zapallo",
-  "Aceite de coco","Claras de huevo","Chips de banana","Pasas de uva","Chocolate",
+  "Aceite de coco","Claras de huevo","Chips de banana",
 ];
+
 const CUSTOM_INGREDIENTS = [
   "Copos de maíz","Avena","Proteína de soja","Castañas de cajú",
   "Almendras","Nueces","Semillas de zapallo","Chips de banana",
@@ -33,6 +35,14 @@ const CUSTOM_INGREDIENTS = [
 
 const CUSTOM_SIZES  = [{ label:"1 kg", value:"1kg", price:740 }, { label:"½ kg", value:"500g", price:360 }];
 const CLASSIC_SIZES = [{ label:"1 kg", value:"1kg", price:660 }, { label:"½ kg", value:"500g", price:350 }];
+const CHOCO_EXTRA   = 20;
+
+// Variantes de granola clásica
+const CLASSIC_VARIANTS = [
+  { key:"sin-pasas",    label:"Sin pasas",      extra:0  },
+  { key:"con-pasas",    label:"Con pasas",       extra:0  },
+  { key:"con-chocolate",label:"Con chocolate",   extra:CHOCO_EXTRA },
+];
 
 function Star({ size = 48, color = C.darkOlive }) {
   return (
@@ -85,24 +95,35 @@ const inputSt = {
 };
 
 export default function Granomix() {
-  const [customSize, setCustomSize]   = useState("1kg");
-  const [customSel, setCustomSel]     = useState([]);
-  const [classicSize, setClassicSize] = useState("1kg");
-  const [classicType, setClassicType] = useState("con miel");
-  const [removed, setRemoved]         = useState([]);
-  const [cart, setCart]               = useState([]);
-  const [name, setName]               = useState("");
-  const [phone, setPhone]             = useState("");
-  const [address, setAddress]         = useState("");
-  const [notes, setNotes]             = useState("");
-  const [refName, setRefName]         = useState("");
-  const [refPhone, setRefPhone]       = useState("");
-  const [delivery, setDelivery]       = useState("pickup");
-  const [payment, setPayment]         = useState("");
-  const [cashAmount, setCashAmount]   = useState("");
-  const [flash, setFlash]             = useState(null);
+  const [customSize, setCustomSize]     = useState("1kg");
+  const [customSel, setCustomSel]       = useState([]);
+  const [classicSize, setClassicSize]   = useState("1kg");
+  const [classicType, setClassicType]   = useState("con miel");
+  const [classicVariant, setClassicVariant] = useState("sin-pasas");
+  const [cart, setCart]                 = useState([]);
+  const [name, setName]                 = useState("");
+  const [phone, setPhone]               = useState("");
+  const [address, setAddress]           = useState("");
+  const [notes, setNotes]               = useState("");
+  const [refName, setRefName]           = useState("");
+  const [refPhone, setRefPhone]         = useState("");
+  const [delivery, setDelivery]         = useState("pickup");
+  const [payment, setPayment]           = useState("");
+  const [cashAmount, setCashAmount]     = useState("");
+  const [flash, setFlash]               = useState(null);
+  const [classicNotes, setClassicNotes] = useState("");
 
-  const baseIngredients = classicType === "con miel" ? CON_MIEL : SIN_MIEL;
+  const baseIngredients = classicType === "con miel" ? BASE_CON_MIEL : BASE_SIN_MIEL;
+  const variantData     = CLASSIC_VARIANTS.find(v => v.key === classicVariant);
+  const classicBasePrice = CLASSIC_SIZES.find(s => s.value === classicSize)?.price ?? 0;
+  const classicPrice    = classicBasePrice + (variantData?.extra ?? 0);
+
+  const classicIngredients = () => {
+    const base = [...baseIngredients];
+    if (classicVariant === "con-pasas")    base.push("Pasas de uva");
+    if (classicVariant === "con-chocolate") base.push("Chocolate");
+    return base;
+  };
 
   useEffect(() => {
     const style = document.createElement("style");
@@ -120,18 +141,10 @@ export default function Granomix() {
     return () => document.head.removeChild(style);
   }, []);
 
-  useEffect(() => { setRemoved([]); }, [classicType]);
-
-  const toggleRemove = (ing) => {
-    if (removed.includes(ing)) setRemoved(p => p.filter(i => i !== ing));
-    else if (removed.length < 3) setRemoved(p => [...p, ing]);
-  };
-
   const toggleCustom = (ing) =>
     setCustomSel(p => p.includes(ing) ? p.filter(i => i !== ing) : [...p, ing]);
 
-  const customPrice  = CUSTOM_SIZES.find(s => s.value === customSize)?.price;
-  const classicPrice = CLASSIC_SIZES.find(s => s.value === classicSize)?.price;
+  const customPrice = CUSTOM_SIZES.find(s => s.value === customSize)?.price;
 
   const doFlash = (t) => { setFlash(t); setTimeout(() => setFlash(null), 1100); };
 
@@ -143,9 +156,13 @@ export default function Granomix() {
   };
 
   const addClassic = () => {
-    const finalIng = baseIngredients.filter(i => !removed.includes(i));
-    setCart(p => [...p, { id:Date.now(), type:"classic", size:classicSize, classicType, ingredients:finalIng, removed:[...removed], price:classicPrice }]);
-    setRemoved([]);
+    const label = `Granola ${classicType} — ${variantData.label}`;
+    setCart(p => [...p, {
+      id:Date.now(), type:"classic", size:classicSize,
+      classicType, variant:classicVariant, variantLabel:variantData.label,
+      ingredients:classicIngredients(), price:classicPrice, classicNotes:classicNotes.trim(),
+    }]);
+    setClassicNotes("");
     doFlash("classic");
   };
 
@@ -157,9 +174,7 @@ export default function Granomix() {
 
   const sendOrder = () => {
     if (!canSend) return;
-    let msg = `*Pedido GRANOMIX*\n\n`;
-    msg += `Nombre: ${name.trim()}\n`;
-    msg += `Teléfono: ${phone.trim()}\n`;
+    let msg = `*Pedido GRANOMIX*\n\nNombre: ${name.trim()}\nTeléfono: ${phone.trim()}\n`;
     msg += delivery === "pickup"
       ? `Retiro: Pick up (a coordinar por WhatsApp)\n`
       : `Entrega a domicilio (día a coordinar por WhatsApp): ${address.trim()}\n`;
@@ -169,8 +184,8 @@ export default function Granomix() {
         msg += `\n${i+1}. Armá tu granola (${item.size}) - $${item.price}\n`;
         msg += `   Ingredientes: ${item.ingredients.join(", ")}\n`;
       } else {
-        msg += `\n${i+1}. Granola ${item.classicType} (${item.size}) - $${item.price}\n`;
-        if (item.removed.length) msg += `   Sin: ${item.removed.join(", ")}\n`;
+        msg += `\n${i+1}. Granola ${item.classicType} — ${item.variantLabel} (${item.size}) - $${item.price}\n`;
+        if (item.classicNotes) msg += `   Aclaración: ${item.classicNotes}\n`;
       }
     });
     msg += `\nTotal: $${total}`;
@@ -229,20 +244,20 @@ export default function Granomix() {
           <div>
             <p style={{ color:C.creamLight, fontWeight:700, fontSize:"0.88rem" }}>Programa de referidos</p>
             <p style={{ color:C.creamLight, fontSize:"0.81rem", marginTop:"3px", lineHeight:1.55, opacity:0.8 }}>
-              Traés un cliente nuevo y cuando compra, te llevás un 50% de descuento en tu próxima compra.
+              Traés un cliente nuevo y cuando compra, te llevás un 30% de descuento en tu próxima compra.
             </p>
           </div>
         </div>
 
-        {/* ── PRODUCTS: clásica primero, luego armá ── */}
+        {/* ── PRODUCTS ── */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(290px,1fr))", gap:"20px", marginBottom:"22px" }}>
 
-          {/* GRANOLA CLÁSICA — primero */}
+          {/* GRANOLA CLÁSICA */}
           <div style={cardStyle}>
             <h2 style={{ fontFamily:"'Dancing Script',cursive", fontSize:"1.7rem", color:C.darkOlive, marginBottom:"4px" }}>
               Granola clásica
             </h2>
-            <p style={{ color:C.muted, fontSize:"0.8rem", marginBottom:"20px" }}>Podés eliminar hasta 3 ingredientes</p>
+            <p style={{ color:C.muted, fontSize:"0.8rem", marginBottom:"20px" }}>Elegí el tipo y la variante</p>
 
             <SectionLabel>Tipo</SectionLabel>
             <div style={{ display:"flex", gap:"10px", marginBottom:"20px" }}>
@@ -259,37 +274,56 @@ export default function Granomix() {
               ))}
             </div>
 
+            <SectionLabel>Variante</SectionLabel>
+            <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap" }}>
+              {CLASSIC_VARIANTS.map(v => (
+                <button key={v.key} onClick={() => setClassicVariant(v.key)} style={{
+                  flex:1, minWidth:"90px", padding:"10px 8px", borderRadius:"10px", cursor:"pointer",
+                  border:`2px solid ${classicVariant === v.key ? C.darkOlive : C.border}`,
+                  background: classicVariant === v.key ? C.darkOlive : C.sage,
+                  color: classicVariant === v.key ? C.creamLight : C.muted,
+                  fontWeight:700, fontSize:"0.78rem", transition:"all 0.15s", lineHeight:1.4,
+                }}>
+                  {v.label}
+                  {v.extra > 0 && (
+                    <span style={{ display:"block", fontSize:"0.7rem", opacity:0.8 }}>+${v.extra}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
             <SectionLabel>Tamaño</SectionLabel>
             <SizeSelector sizes={CLASSIC_SIZES} active={classicSize} onSelect={setClassicSize} />
 
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-              <p style={{ fontFamily:"'Josefin Sans',sans-serif", fontSize:"0.7rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"2px", color:C.muted }}>
-                Ingredientes
-              </p>
-              <p style={{ fontFamily:"'Josefin Sans',sans-serif", fontSize:"0.7rem", fontWeight:700, color: removed.length > 0 ? "#c0573a" : C.muted, minWidth:"90px", textAlign:"right" }}>
-                {removed.length === 0 ? "Eliminá hasta 3" : `Eliminaste ${removed.length}/3`}
-              </p>
-            </div>
+            {/* Precio dinámico */}
+            {variantData?.extra > 0 && (
+              <div style={{ background:C.sage, border:`1px solid ${C.border}`, borderRadius:"10px", padding:"10px 14px", marginBottom:"16px" }}>
+                <p style={{ fontSize:"0.78rem", color:C.darkOlive, fontWeight:700 }}>
+                  Precio: ${classicPrice} <span style={{ fontWeight:400, opacity:0.7 }}>(incluye +${variantData.extra} por chocolate)</span>
+                </p>
+              </div>
+            )}
+
+            {/* Ingredientes */}
+            <SectionLabel>Ingredientes incluidos</SectionLabel>
             <div style={{ display:"flex", flexWrap:"wrap", gap:"7px", marginBottom:"18px" }}>
-              {baseIngredients.map(ing => {
-                const isRemoved = removed.includes(ing);
-                const maxed = removed.length >= 3 && !isRemoved;
-                return (
-                  <button key={ing} onClick={() => toggleRemove(ing)} disabled={maxed} style={{
-                    padding:"6px 12px", borderRadius:"20px", cursor:maxed ? "not-allowed" : "pointer",
-                    border:`1.5px solid ${isRemoved ? "#c0573a" : C.border}`,
-                    background: isRemoved ? "#f5e8e4" : C.sage,
-                    color: isRemoved ? "#c0573a" : maxed ? "#b0a870" : C.muted,
-                    fontSize:"0.78rem", fontWeight:600,
-                    textDecoration:isRemoved ? "line-through" : "none",
-                    opacity:maxed ? 0.45 : 1, transition:"all 0.14s",
-                  }}>
-                    {ing}
-                  </button>
-                );
-              })}
+              {classicIngredients().map(ing => (
+                <span key={ing} style={{
+                  padding:"5px 11px", borderRadius:"20px",
+                  border:`1.5px solid ${C.border}`, background:C.sage,
+                  color:C.muted, fontSize:"0.78rem", fontWeight:600,
+                }}>
+                  {ing}
+                </span>
+              ))}
             </div>
 
+            <input
+              placeholder="Aclaraciones o ingredientes a eliminar (opcional)"
+              value={classicNotes}
+              onChange={e => setClassicNotes(e.target.value)}
+              style={{ ...inputSt, marginBottom:"12px" }}
+            />
             <button onClick={addClassic} style={{
               width:"100%", padding:"13px", borderRadius:"10px", border:"none",
               background: C.sage, color: C.darkOlive,
@@ -298,11 +332,11 @@ export default function Granomix() {
               letterSpacing:"1px", textTransform:"uppercase", transition:"all 0.15s",
               animation:flash === "classic" ? "pop 0.3s ease" : "none",
             }}>
-              {flash === "classic" ? "Agregado" : "+ Agregar al pedido"}
+              {flash === "classic" ? "Agregado" : `+ Agregar al pedido — $${classicPrice}`}
             </button>
           </div>
 
-          {/* ARMÁ TU GRANOLA — segundo */}
+          {/* ARMÁ TU GRANOLA */}
           <div style={cardStyle}>
             <h2 style={{ fontFamily:"'Dancing Script',cursive", fontSize:"1.7rem", color:C.darkOlive, marginBottom:"4px" }}>
               Armá tu granola
@@ -313,7 +347,7 @@ export default function Granomix() {
             <SizeSelector sizes={CUSTOM_SIZES} active={customSize} onSelect={setCustomSize} />
 
             <SectionLabel>Ingredientes</SectionLabel>
-            <div style={{ display:"flex", flexWrap:"wrap", gap:"7px", marginBottom:"16px" }}>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"7px", marginBottom:"10px" }}>
               {CUSTOM_INGREDIENTS.map(ing => {
                 const on = customSel.includes(ing);
                 return (
@@ -329,6 +363,7 @@ export default function Granomix() {
                 );
               })}
             </div>
+
 
             {customSel.length > 0 && (
               <p style={{ fontSize:"0.78rem", color:C.midOlive, fontWeight:700, marginBottom:"10px" }}>
@@ -360,13 +395,20 @@ export default function Granomix() {
               <div key={item.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", padding:"12px 0", borderBottom:`1px solid ${C.sage}`, gap:"12px" }}>
                 <div style={{ flex:1 }}>
                   <p style={{ fontWeight:700, fontSize:"0.9rem", color:C.darkOlive }}>
-                    {item.type === "custom" ? `Armá tu granola (${item.size})` : `Granola ${item.classicType} (${item.size})`}
-                  </p>
-                  <p style={{ color:C.muted, fontSize:"0.76rem", marginTop:"3px" }}>
                     {item.type === "custom"
-                      ? item.ingredients.join(", ")
-                      : item.removed.length ? `Sin: ${item.removed.join(", ")}` : "Todos los ingredientes"}
+                      ? `Armá tu granola (${item.size})`
+                      : `Granola ${item.classicType} — ${item.variantLabel} (${item.size})`}
                   </p>
+                  {item.type === "custom" && (
+                    <p style={{ color:C.muted, fontSize:"0.76rem", marginTop:"3px" }}>
+                      {item.ingredients.join(", ")}
+                    </p>
+                  )}
+                  {item.type === "classic" && item.classicNotes && (
+                    <p style={{ color:C.muted, fontSize:"0.76rem", marginTop:"3px", fontStyle:"italic" }}>
+                      {item.classicNotes}
+                    </p>
+                  )}
                 </div>
                 <div style={{ display:"flex", alignItems:"center", gap:"14px", flexShrink:0 }}>
                   <span style={{ fontWeight:700, color:C.midOlive }}>${item.price}</span>
@@ -466,7 +508,7 @@ export default function Granomix() {
             <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:"16px" }}>
               <SectionLabel>¿Te recomendó alguien? (opcional)</SectionLabel>
               <p style={{ fontSize:"0.78rem", color:C.muted, marginBottom:"10px", lineHeight:1.55 }}>
-                Si venís de parte de alguien, completá sus datos. Cuando comprás, esa persona recibe un 50% de descuento en su próxima compra.
+                Si venís de parte de alguien, completá sus datos. Cuando comprás, esa persona recibe un 30% de descuento en su próxima compra.
               </p>
               <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
                 <input placeholder="Nombre de quien te recomendó" value={refName} onChange={e => setRefName(e.target.value)} style={inputSt} />
